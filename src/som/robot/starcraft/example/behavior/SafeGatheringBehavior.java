@@ -51,17 +51,35 @@ public class SafeGatheringBehavior extends StarcraftBehaviorBase {
       StarcraftWorldFeatures worldFeatures, GlobalPose globalPose, StarcraftMessagesMutable messages,
       StarcraftCommand command) {
     long timestamp = robotState.getTimestamp();
-
+    
+    System.out.println("ID:" + robotState.getID());
+    
     // Pick the nearest object in the world model
     StarcraftWorldObject resource = null;
     double bestDistance = Double.MAX_VALUE;
     for (StarcraftWorldObject object : worldFeatures.getStarcraftWorldObjects(StarcraftObjectType.RESOURCE)) {
       double distance = globalPose.getPosition().distanceTo(object.getGlobalPose().getPosition());
       if (distance < bestDistance) {
-        bestDistance = distance;
-        resource = object;
+    	  boolean guardiansAreClose = false;
+    	  for (StarcraftWorldObject object2 : worldFeatures.getStarcraftWorldObjects(StarcraftObjectType.GUARDIAN)) {
+    	      double distance2 = object2.getGlobalPose().getPosition().distanceTo(object.getGlobalPose().getPosition());
+//    	      System.out.println("GuardDist: " + distance2);
+    	      if (distance2 < 100) {
+    	    	  guardiansAreClose = true;
+    	      }
+    	    }
+    	  
+    	if (!guardiansAreClose) {
+    		bestDistance = distance;
+    		resource = object;
+    	}
       }
     }
+    
+    if (resource != null) {
+    	System.out.println("Found resource with no guardians!");
+    }
+    
 
     try {
       fsm.startLoop(timestamp);
@@ -163,7 +181,7 @@ public class SafeGatheringBehavior extends StarcraftBehaviorBase {
         }
       }
     }
-    fsm.printTransitions(false);
+    fsm.printTransitions(true);
 
     return false;
   }
