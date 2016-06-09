@@ -19,7 +19,8 @@ import som.robot.starcraft.component.readonly.StarcraftWorldObject;
 import som.robot.starcraft.module.StarcraftBehaviorBase;
 
 public class GatheringBehavior extends StarcraftBehaviorBase {
-
+  public Integer robID = 0;
+	
   public GatheringBehavior(ConfigFile configFile) {
     super(configFile);
 
@@ -38,6 +39,8 @@ public class GatheringBehavior extends StarcraftBehaviorBase {
       fsm.addState(State.HeadingToRandomLocation);
       fsm.addState(State.HeadingToResource);
       fsm.addState(State.HeadingHome);
+      fsm.addState(State.LookingForEnemy);
+      fsm.addState(State.AttackingEnemy);
       fsm.finishInit(State.Idle, System.currentTimeMillis());
     }
     catch (FSMException e) {
@@ -51,9 +54,16 @@ public class GatheringBehavior extends StarcraftBehaviorBase {
       StarcraftWorldFeatures worldFeatures, GlobalPose globalPose, StarcraftMessagesMutable messages,
       StarcraftCommand command) {
     long timestamp = robotState.getTimestamp();
+    
+    if(robotState.getID() != robID) {
+    	robID = robotState.getID();
+    	LOGGER.info("respawn with ID " + Integer.toString(robID));
+    }
 
     // Pick the nearest object in the world model
     StarcraftWorldObject resource = null;
+    StarcraftWorldObject enemy = null;
+
     double bestDistance = Double.MAX_VALUE;
     for (StarcraftWorldObject object : worldFeatures.getStarcraftWorldObjects(StarcraftObjectType.RESOURCE)) {
       double distance = globalPose.getPosition().distanceTo(object.getGlobalPose().getPosition());
@@ -63,70 +73,129 @@ public class GatheringBehavior extends StarcraftBehaviorBase {
       }
     }
 
+    for (StarcraftWorldObject object : worldFeatures.getStarcraftWorldObjects(StarcraftObjectType.OPPONENT_ROBOT)) {
+        double distance = globalPose.getPosition().distanceTo(object.getGlobalPose().getPosition());
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          enemy = object;
+        }
+      }
+    
     try {
       fsm.startLoop(timestamp);
       while (fsm.isRunning()) {
 
         if (fsm.inState(State.Idle)) {
           // If the robot is idle, head to a random location
-          fsm.transition(State.HeadingToRandomLocation, "Head to random location");
+          fsm.transition(State.LookingForEnemy, "Head to random location");
           continue;
         }
 
         else if (fsm.inState(State.HeadingToRandomLocation)) {
-          // If the robot has chosen a resource, head towards it
-          if (resource != null) {
-            fsm.transition(State.HeadingToResource, "Found a resource");
-            continue;
-          }
+            // If the robot has chosen a resource, head towards it
+            if (resource != null) {
+              fsm.transition(State.HeadingToResource, "Found a resource");
+              continue;
+            }
 
-          // Set a random target if we just entered the state
-          if (fsm.isNewState()) {
-            int randomX = random.nextInt(getWorldMaxX() - getWorldMinX() + 1) + getWorldMinX();
-            int randomY = random.nextInt(getWorldMaxY() - getWorldMinY() + 1) + getWorldMinY();
-            targetLocation = new Vector2D(randomX, randomY);
-            command.goToGlobalPosition(targetLocation);
-            LOGGER.info("Heading to random location: (" + randomX + ", " + randomY + ")");
-          }
-          // If the robot is idle, switch to the idle state
-          else if (robotState.isIdle() && (fsm.getTimeInState() > 500)) {
-            fsm.transition(State.Idle, "Arrived at location");
-            continue;
-          }
+            // Set a random target if we just entered the state
+            if (fsm.isNewState()) {
+              int randomX = random.nextInt(getWorldMaxX() - getWorldMinX() + 1) + getWorldMinX();
+              int randomY = random.nextInt(getWorldMaxY() - getWorldMinY() + 1) + getWorldMinY();
+              targetLocation = new Vector2D(randomX, randomY);
+              command.goToGlobalPosition(targetLocation);
+              LOGGER.info("Heading to random location: (" + randomX + ", " + randomY + ")");
+            }
+            // If the robot is idle, switch to the idle state
+            else if (robotState.isIdle() && (fsm.getTimeInState() > 500)) {
+              fsm.transition(State.Idle, "Arrived at location");
+              continue;
+            }
 
-          // Otherwise, keep heading to the location
-          fsm.endLoop();
-        }
+            // Otherwise, keep heading to the location
+            fsm.endLoop();
+          }
+        else if (fsm.inState(State.LookingForEnemy)) {
+            // If the robot has chosen a resource, head towards it
+            if (enemy != null) {
+              fsm.transition(State.AttackingEnemy, "Found enemy");
+              continue;
+            }
+
+            
+            // Set a random target if we just entered the state
+            if (fsm.isNewState()) {
+              int randomX = random.nextInt(getWorldMaxX() - getWorldMinX() + 1) + getWorldMinX();
+              int randomY = random.nextInt(getWorldMaxY() - getWorldMinY() + 1) + getWorldMinY();
+              targetLocation = new Vector2D(randomX, randomY);
+              command.goToGlobalPosition(targetLocation);
+              LOGGER.info("Heading to random location: (" + randomX + ", " + randomY + ")");
+            }
+            // If the robot is idle, switch to the idle state
+            else if (robotState.isIdle() && (fsm.getTimeInState() > 500)) {
+              fsm.transition(State.Idle, "Arrived at location");
+              continue;
+            }
+
+            // Otherwise, keep heading to the location
+            fsm.endLoop();
+          }
 
         else if (fsm.inState(State.HeadingToResource)) {
-          // If the robot is carrying a resource, head home
-          if (robotState.hasPickedUpResource()) {
-            fsm.transition(State.HeadingHome, "Picked up resource");
-            continue;
-          }
-          // If the robot loses sight of any resources, enter the idle state
-          if (resource == null) {
-            fsm.transition(State.Idle, "Lost sight of resource");
-            continue;
-          }
+            // If the robot is carrying a resource, head home
+            if (robotState.hasPickedUpResource()) {
+              fsm.transition(State.HeadingHome, "Picked up resource");
+              continue;
+            }
+            // If the robot loses sight of any resources, enter the idle state
+            if (resource == null) {
+              fsm.transition(State.Idle, "Lost sight of resource");
+              continue;
+            }
 
-          if (!targetLocation.equals(resource.getGlobalPose().getPosition())) {
-            // Head towards the resource
-            LOGGER.fine("I am at: " + globalPose.getPosition());
-            LOGGER.fine("Heading to resource " + resource.getID() + " at " + resource.getGlobalPose().getPosition());
-            LOGGER.fine("State of resource, visible: " + resource.isVisible() + ", suspicious: "
-                + resource.isSuspicious() + ", valid: " + resource.isValid());
-            command.goToGlobalPosition(resource.getGlobalPose().getPosition());
-          }
-          // If the robot arrived but doesn't have a resource, enter the idle state
-          else if (robotState.isIdle()) {
-            fsm.transition(State.Idle, "Arrived at location but did not pick up resource");
-            continue;
-          }
+            if (!targetLocation.equals(resource.getGlobalPose().getPosition())) {
+              // Head towards the resource
+              LOGGER.fine("I am at: " + globalPose.getPosition());
+              LOGGER.fine("Heading to resource " + resource.getID() + " at " + resource.getGlobalPose().getPosition());
+              LOGGER.fine("State of resource, visible: " + resource.isVisible() + ", suspicious: "
+                  + resource.isSuspicious() + ", valid: " + resource.isValid());
+              command.goToGlobalPosition(resource.getGlobalPose().getPosition());
+            }
+            // If the robot arrived but doesn't have a resource, enter the idle state
+            else if (robotState.isIdle()) {
+              fsm.transition(State.Idle, "Arrived at location but did not pick up resource");
+              continue;
+            }
 
-          // Otherwise, keep heading to the random location
-          fsm.endLoop();
-        }
+            // Otherwise, keep heading to the random location
+            fsm.endLoop();
+          }
+        else if (fsm.inState(State.AttackingEnemy)) {
+
+            // If the robot loses sight of any resources, enter the idle state
+            if (enemy == null) {
+              fsm.transition(State.Idle, "Lost sight of resource");
+              continue;
+            }
+
+            //if (!targetLocation.equals(enemy.getGlobalPose().getPosition())) {
+              // Head towards the resource
+              LOGGER.fine("I am at: " + globalPose.getPosition());
+              LOGGER.fine("Heading to resource " + resource.getID() + " at " + resource.getGlobalPose().getPosition());
+              LOGGER.fine("State of enemy, visible: " + resource.isVisible() + ", suspicious: "
+                  + resource.isSuspicious() + ", valid: " + resource.isValid());
+              //command.goToGlobalPosition(enemy.getGlobalPose().getPosition());
+              command.attack(enemy);
+            //}
+            // If the robot arrived but doesn't have a resource, enter the idle state
+            //else if (robotState.isIdle()) {
+            //  fsm.transition(State.Idle, "Arrived at location but did not pick up resource");
+            //  continue;
+            //}
+
+            // Otherwise, keep heading to the random location
+            fsm.endLoop();
+          }
         else if (fsm.inState(State.HeadingHome)) {
           // If the robot is not carrying a resource, enter the idle state
           if (!robotState.hasPickedUpResource()) {
@@ -163,13 +232,13 @@ public class GatheringBehavior extends StarcraftBehaviorBase {
         }
       }
     }
-    fsm.printTransitions(false);
+    fsm.printTransitions(true);
 
     return false;
   }
 
   public enum State implements FSM.State {
-    Idle, HeadingToRandomLocation, HeadingToResource, HeadingHome
+    Idle, HeadingToRandomLocation, HeadingToResource, HeadingHome, LookingForEnemy, AttackingEnemy
   }
 
   final static Logger LOGGER = Logger.getLogger(GatheringBehavior.class.getName());

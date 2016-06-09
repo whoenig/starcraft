@@ -1,8 +1,8 @@
-starcraftServer/host = 127.0.0.1
+starcraftServer/host = 137.132.82.182
 starcraftServer/port = 10000
 
 # Team 1: Blue, Team 2: Red
-team/teamID = 1
+team/teamID = 2
 
 starcraft/worldModel/timeTillSuspicious = 0.5 # seconds
 starcraft/worldModel/timeTillInvalid = 1.0 # seconds
