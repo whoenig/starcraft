@@ -1,0 +1,7 @@
+som.config
+som.math
+som.robot.architecture.component.readonly
+som.robot.architecture.module
+som.robot.starcraft.component.mutable
+som.robot.starcraft.component.readonly
+som.robot.starcraft.module

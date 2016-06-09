@@ -1,0 +1,21 @@
+starcraftServer/host = 127.0.0.1
+starcraftServer/port = 10000
+
+# Team 1: Blue, Team 2: Red
+team/teamID = 1
+
+starcraft/worldModel/timeTillSuspicious = 0.5 # seconds
+starcraft/worldModel/timeTillInvalid = 1.0 # seconds
+
+agent/frameRateFactor = 0.95
+
+homeLocation/blue/x = 110
+homeLocation/blue/y = 90
+
+homeLocation/red/x = 1930
+homeLocation/red/y = 90
+
+world/minX = 30
+world/minY = 30
+world/maxX = 2000
+world/maxY = 2000
