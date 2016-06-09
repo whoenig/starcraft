@@ -66,10 +66,21 @@ public class SafeGatheringBehavior extends StarcraftBehaviorBase {
         }
       }
     
-    if (enemy != null && bestDistance < 100) {
-    	command.attack(enemy);
-    	System.out.println("Enemy nearby -> attack");
-    	return false;
+    if (enemy != null && bestDistance < 50) {  	
+    	if (attackTime == 0) {
+    		attackTime = robotState.getTimestamp();
+    	}
+    	if (timestamp - attackTime < 5 * 1000) {
+    		command.attack(enemy);
+    		double t = (timestamp - attackTime) / 1000.0;
+        	System.out.println("Enemy nearby -> attack (for: " + t + " s");
+        	return false;
+    	} else {
+    		
+    		attackTime = 0;
+    	}
+    } else {
+    	attackTime = 0;
     }
     
     // Pick the nearest object in the world model
@@ -212,4 +223,5 @@ public class SafeGatheringBehavior extends StarcraftBehaviorBase {
 
   Random random;
   Vector2D targetLocation;
+  double attackTime = 0;
 }
