@@ -88,7 +88,7 @@ public class ProtectHomeBaseBehavior extends StarcraftBehaviorBase {
             // find enemy nearby
             if (fsm.isNewState()) {
             	// find enemy
-                double bestDistance = 200;
+                double bestDistance = 400;
                 for (StarcraftWorldObject object : worldFeatures.getStarcraftWorldObjects(StarcraftObjectType.OPPONENT_ROBOT)) {
                     double distance = globalPose.getPosition().distanceTo(object.getGlobalPose().getPosition());
                     if (distance < bestDistance) {
@@ -97,25 +97,14 @@ public class ProtectHomeBaseBehavior extends StarcraftBehaviorBase {
                     }
                   }
             }
+            System.out.println("found enemy, killing");
             
             // if found enemy nearby, kill it
             if (enemy != null) {
-                fsm.transition(State.AttackingEnemy, "Found enemy");
-                continue;
+                command.attack(enemy);
               }
-            
-
-            // Otherwise, keep heading to the location
-            fsm.endLoop();
-          }
-        else if (fsm.inState(State.AttackingEnemy)) {
-            // If the robot loses sight of any resources, enter the idle state
-            if (enemy == null) {
-              fsm.transition(State.HeadingHome, "No enemy to attack, head home");
-              continue;
-            }
-
-            command.attack(enemy);
+            else
+            	fsm.transition(State.HeadingHome, "Go to home location");
 
             // Otherwise, keep heading to the random location
             fsm.endLoop();
@@ -143,7 +132,7 @@ public class ProtectHomeBaseBehavior extends StarcraftBehaviorBase {
   }
 
   public enum State implements FSM.State {
-    Idle, HeadingToRandomLocation, HeadingToResource, HeadingHome, LookingForEnemy, AttackingEnemy
+    Idle, HeadingHome, LookingForEnemy, AttackingEnemy
   }
 
   final static Logger LOGGER = Logger.getLogger(GatheringBehavior.class.getName());
