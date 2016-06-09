@@ -54,9 +54,27 @@ public class SafeGatheringBehavior extends StarcraftBehaviorBase {
     
     System.out.println("ID:" + robotState.getID());
     
+    // First, we check if an opponent is close by, if so attack
+    StarcraftWorldObject enemy = null;
+    double bestDistance = Double.MAX_VALUE;
+    
+    for (StarcraftWorldObject object : worldFeatures.getStarcraftWorldObjects(StarcraftObjectType.OPPONENT_ROBOT)) {
+        double distance = globalPose.getPosition().distanceTo(object.getGlobalPose().getPosition());
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          enemy = object;
+        }
+      }
+    
+    if (enemy != null && bestDistance < 100) {
+    	command.attack(enemy);
+    	System.out.println("Enemy nearby -> attack");
+    	return false;
+    }
+    
     // Pick the nearest object in the world model
     StarcraftWorldObject resource = null;
-    double bestDistance = Double.MAX_VALUE;
+    bestDistance = Double.MAX_VALUE;
     for (StarcraftWorldObject object : worldFeatures.getStarcraftWorldObjects(StarcraftObjectType.RESOURCE)) {
       double distance = globalPose.getPosition().distanceTo(object.getGlobalPose().getPosition());
       if (distance < bestDistance) {
